@@ -1,0 +1,159 @@
+!
+! =============================
+! 1. تنظیم hostname
+! =============================
+hostname Router2
+
+!
+! =============================
+! 2. تنظیم دامنه برای خدمات رمزنگاری (SSH, PKI)
+! =============================
+  ip domain-name okaner.local
+no ip domain-lookup
+
+!
+! =============================
+! 3. تولید کلید RSA (حداقل 2048 بیت — استاندارد امنیتی)
+! =============================
+crypto key generate rsa modulus 2048
+
+!
+! =============================
+! 4. فعال‌سازی SSHv2 و غیرفعال‌سازی Telnet و سرویس‌های غیرضروری
+! =============================
+ip ssh version 2
+ip ssh time-out 60
+ip ssh authentication-retries 3
+
+! غیرفعال کردن Telnet (با مسدود کردن دسترسی VTY بدون SSH)
+line vty 0 15
+ transport input ssh
+
+! غیرفعال کردن سرویس‌های قدیمی و غیرضروری
+no ip http server
+no ip http secure-server
+no service tcp-small-servers
+no service udp-small-servers
+no ip source-route
+no ip bootp server
+# no cdp run        
+
+!
+! =============================
+! 5. تنظیم کاربر امن (ترجیحاً با secret و نه password)
+! =============================
+username admin privilege 15 secret 123!@#
+
+!
+! =============================
+! 6. تنظیمات خطوط کنسول و VTY (دسترسی امن)
+! =============================
+line con 0
+ exec-timeout 10 0
+ logging synchronous
+ login local
+ transport output none
+
+line aux 0
+ exec-timeout 5 0
+ login local
+
+line vty 0 15
+ exec-timeout 10 0
+ logging synchronous
+ transport input ssh      ! فقط SSH مجاز است
+ transport output none
+ login local
+
+!
+! =============================
+! 7. رمز عبور enable (حالت privileged)
+! =============================
+ # enable secret 123!@#
+!
+! =============================
+! 8. رمزنگاری رمزهای عبور ساده (در صورت وجود)
+! =============================
+service password-encryption
+
+!
+! =============================
+! 9. بنر هشداردهنده (Banner MOTD)
+! =============================
+
+
+
+configure terminal
+banner motd $
+***************************************************************************
+*                                                                         *
+*        AUTHORIZED ACCESS ONLY!                                          *
+*                                                                         *
+*   This system is for the use of authorized personnel only.              *
+*   Unauthorized access or activity is strictly prohibited and            *
+*   will be prosecuted to the fullest extent of the law.                  *
+*   All activities are logged, monitored, and stored for audit purposes.   *
+*                                                                         *
+***************************************************************************
+$
+end
+
+configure terminal
+! =============================
+! 10. تنظیمات زمان و تاریخ (NTP)
+! =============================
+# ntp server 10.254.254.2
+clock timezone IRST 3 30    
+service timestamps log datetime msec
+service timestamps debug datetime msec
+
+!
+! =============================
+! 11. ارسال لاگ‌ها به سرور Syslog
+! =============================
+logging host 10.254.254.1
+logging trap informational
+logging source-interface Loopback0   ! (اگر Loopback دارید — توصیه می‌شود)
+
+!
+! =============================
+! 12. تنظیمات پایه شبکه (اختیاری ولی توصیه‌شده)
+! =============================
+! ایجاد اینترفیس Loopback برای مدیریت پایدار
+interface Loopback0
+ description Management Interface
+ ip address 192.168.255.2 255.255.255.255
+
+! تنظیم IP برای اینترفیس WAN/OUTSIDE (مثال)
+interface GigabitEthernet2/0
+ description Uplink to ISP
+ ip address 10.254.253.10 255.255.255.252
+ no shutdown
+
+! تنظیم IP برای اینترفیس LAN/INSIDE
+interface GigabitEthernet0/0
+ description Internal LAN
+ ip address 10.1.1.2 255.255.255.0
+ no shutdown
+
+!
+! =============================
+! 13. مسیر پیش‌فرض (در صورت نیاز)
+! =============================
+#ip route 0.0.0.0 0.0.0.0 GigabitEthernet0/0   ! یا آدرس next-hop
+
+!
+! =============================
+! 14. فعال‌سازی IPv6 (در صورت نیاز — اختیاری)
+! =============================
+! ipv6 unicast-routing
+! (در صورت استفاده از IPv6)
+
+!
+! =============================
+! 15. ذخیره تنظیمات
+! =============================
+end
+write memory
+
+
